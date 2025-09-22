@@ -3,6 +3,7 @@ import json
 import google.generativeai as genai
 import os
 from dotenv import load_dotenv
+import logging
 
 
 load_dotenv()
@@ -12,9 +13,19 @@ api_key = os.getenv("GEMINI_API_KEY")  # pega GEMINI_API_KEY do .env automaticam
 if not api_key:
     raise ValueError("⚠️ GEMINI_API_KEY não encontrada no .env")
 
-genai.configure(api_key=api_key)
+genai.configure(
+    api_key=api_key
+)
 
-model = genai.GenerativeModel("gemini-1.5-flash")
+logger = logging.getLogger("uvicorn.error")
+
+generation_config = {
+    "temperature": 0.4,
+    "top_p": 0.8,
+    "top_k": 40,
+    "max_output_tokens": 1500,
+    "response_mime_type": "text/plain",
+}
 
 # palavras-chave que disparam protocolo de emergência
 EMERGENCY_KEYWORDS = [
@@ -40,7 +51,7 @@ Missão:
 - Não diagnostique, não prescreva.
 - Se identificar emergência, diga para procurar pronto-socorro ou ligar 192.
 
-No fim, produza JSON válido com:
+No fim, ao coletar todas essas informações, produza JSON válido com:
 {
  "queixa": "...",
  "sintomas": "...",
@@ -50,7 +61,16 @@ No fim, produza JSON válido com:
  "medidas_tomadas": "...",
  "resumo": "Resumo breve para o usuário"
 }
+
+Considere o max_output_token = 1500. Não mande uma resposta excedendo esse limite.
+
 """
+
+model = genai.GenerativeModel(
+    model_name="gemini-1.5-flash",
+    generation_config=generation_config,
+    system_instruction=SYSTEM_PROMPT
+)
 
 async def run_agent(user_id: str, chat: list):
     #buscando última mensagem
@@ -64,26 +84,35 @@ async def run_agent(user_id: str, chat: list):
                "Por favor, procure o pronto-socorro mais próximo ou ligue para o 192 imediatamente.")
         return msg, {"emergency": True}, True
 
-    # chama Gemini
-    prompt = SYSTEM_PROMPT
-    for msg in chat[-10:]:
-        role = "Usuário" if msg.get("from") == "user" else "ClinicAI"
-        prompt += f"\n{role}: {msg.get('text')}"
+    # Constrói o histórico no formato esperado pelo Gemini
+    history = []
+    for message in chat:
+        role = "user" if message.get("from") == "user" else "model"
+        history.append({"role": role, "parts": [message.get("text", "")]})
 
-    response = model.generate_content(prompt)
-    raw_text = response.text if hasattr(response, "text") else str(response)
+    # Chama a API do Gemini de forma assíncrona e com tratamento de erros
+    try:
+        response = await model.generate_content_async(history)
+        raw_text = response.text
+    except Exception as e:
+        logger.error(f"Erro na chamada da API Gemini para user_id '{user_id}': {e}")
+        # Retorna uma mensagem de erro amigável e nenhum dado estruturado
+        error_message = "Desculpe, estou com um problema técnico no momento e não consigo processar sua mensagem. Por favor, tente novamente em alguns instantes."
+        return error_message, {}, False
 
     # tenta extrair JSON
     json_data = {}
     try:
-        m = re.search(r"(\{(?:.|\s)*\})", raw_text)
+        # Procura por um bloco de código JSON na resposta
+        m = re.search(r"```json\s*(\{.*?\})\s*```", raw_text, re.DOTALL)
         if m:
-            json_data = json.loads(m.group(1))
-    except Exception:
+            json_str = m.group(1)
+            json_data = json.loads(json_str)
+    except json.JSONDecodeError:
+        # Se o JSON for inválido, o json_data continua vazio e o log pode ser adicionado se necessário
         json_data = {}
 
-    resumo = json_data.get("resumo", raw_text[:500])
-    reply_text = (
-                  f"{resumo}\n\nPosso continuar fazendo perguntas para completar sua triagem.")
+    # Usa o resumo do JSON se existir, caso contrário, usa a resposta de texto completa.
+    reply_text = json_data.get("resumo", raw_text)
 
     return reply_text, json_data, False

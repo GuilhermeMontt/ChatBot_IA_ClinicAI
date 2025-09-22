@@ -1,9 +1,9 @@
 # app/main.py
-import os
+import os, json
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-
+import logging, traceback
 from app.db import create_chat, save_message, get_convs
 from app.agent import run_agent
 
@@ -20,12 +20,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+logger = logging.getLogger("uvicorn.error")  # usa o logger do uvicorn
 # --- Endpoints ---
 
 @app.get("/")
 async def root():
-    triage = await get_convs()
-    return {'data': triage}
+    convs = await get_convs()
+    return {'data': convs}
 
 @app.post('/chat/new')
 async def open_chat(request: Request):
@@ -57,16 +58,21 @@ async def chat_endpoint(request: Request):
 
     # Salva mensagem do usuário no histórico e recebe o histórico para enviar ao agent
     chat = await save_message(user_id, {"from": "user", "text": text})
+    try:
+        # Chama o agente para processar a mensagem
+        reply_text, structured_data, is_emergency = await run_agent(user_id, chat)
 
-    # Chama o agente para processar a mensagem
-    reply_text, structured_data, is_emergency = await run_agent(user_id, chat)
+        # Salva a resposta do agente e a triagem (se houver)
+        agent_msg = {"from": "agent", "text": reply_text}
+        if structured_data:
+            await save_message(user_id, agent_msg, triage=structured_data)
+        else:
+            await save_message(user_id, agent_msg)
 
-    # Salva triagem parcial/atualizada no MongoDB
-
-    # Salva resposta do agente no histórico
-    await save_message(user_id, {"from": "agent", "text": reply_text})
+    except Exception as e:
+        error_details = traceback.format_exc()
+        logger.error(f"Erro no chat_endpoint: {e}\n{error_details}")
+        return {"error": str(e)}  # opcional: devolver erro pro cliente
 
     # Retorna resposta para o frontend
     return {"reply": reply_text}
-
-
