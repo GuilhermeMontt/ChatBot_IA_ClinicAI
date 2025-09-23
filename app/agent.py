@@ -72,7 +72,7 @@ model = genai.GenerativeModel(
     system_instruction=SYSTEM_PROMPT
 )
 
-async def run_agent(user_id: str, chat: list):
+async def run_agent(chat_id: str, chat: list):
     #buscando última mensagem
     last_msg = chat[-1]
     text = last_msg.get("text", "") if isinstance(last_msg, dict) else str(last_msg)
@@ -95,7 +95,7 @@ async def run_agent(user_id: str, chat: list):
         response = await model.generate_content_async(history)
         raw_text = response.text
     except Exception as e:
-        logger.error(f"Erro na chamada da API Gemini para user_id '{user_id}': {e}")
+        logger.error(f"Erro na chamada da API Gemini para chat_id '{chat_id}': {e}")
         # Retorna uma mensagem de erro amigável e nenhum dado estruturado
         error_message = "Desculpe, estou com um problema técnico no momento e não consigo processar sua mensagem. Por favor, tente novamente em alguns instantes."
         return error_message, {}, False

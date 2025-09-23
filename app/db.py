@@ -2,32 +2,28 @@ import os
 from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime
 from pymongo import ReturnDocument
+from bson.objectid import ObjectId
 
 MONGO_URI = os.getenv("MONGO_URI")
 MONGO_DB = os.getenv("MONGO_DB", "clinicai")
 client = AsyncIOMotorClient(MONGO_URI)
 db = client[MONGO_DB]
 
-async def create_chat(user_id: str):
-    """Salva cada mensagem (histórico bruto)"""
-    # Usamos update_one com upsert para garantir que o chat seja criado apenas se não existir,
-    # evitando erros de duplicação e tornando a operação mais robusta.
-    await db.conversations.update_one(
-        {"user_id": user_id},
-        {"$setOnInsert": {
-            "user_id": user_id,
-            "chat": [],
-            "triage": {},
-            "timestamp": datetime.utcnow()
-        }},
-        upsert=True
-    )
+async def create_chat():
+    """Cria um novo documento de chat e retorna seu ID."""
+    result = await db.conversations.insert_one({
+        "chat": [],
+        "triage": {},
+        "timestamp": datetime.utcnow()
+    })
+    return str(result.inserted_id)
 
-async def save_message(user_id: str, msg_data: dict, triage: dict | None = None):
+async def save_message(chat_id: str, msg_data: dict, triage: dict | None = None):
     """
     Salva uma mensagem no histórico e atualiza a triagem de forma atômica.
     Cria o chat se ele não existir, garantindo uma estrutura de documento consistente.
     """
+    query_filter = {"_id": ObjectId(chat_id)}
     update_query = {
         "$push": {"chat": msg_data}, 
         "$set": {"updated_at": datetime.utcnow()},
@@ -46,7 +42,7 @@ async def save_message(user_id: str, msg_data: dict, triage: dict | None = None)
     # Usamos find_one_and_update para fazer a atualização e retornar o documento atualizado
     # em uma única operação atômica, o que é mais eficiente.
     updated_conv = await db.conversations.find_one_and_update(
-        {"user_id": user_id},
+        query_filter,
         update_query,
         upsert=True,
         return_document=ReturnDocument.AFTER  # Garante que o documento retornado é o *após* a atualização

@@ -3,7 +3,8 @@ import os, json
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-import logging, traceback
+import logging, traceback, bson
+
 from app.db import create_chat, save_message, get_convs
 from app.agent import run_agent
 
@@ -30,18 +31,16 @@ async def root():
 
 @app.post('/chat/new')
 async def open_chat(request: Request):
-    data = await request.json()
-    user_id = data.get('user_id', 'anon')
-
-    await create_chat(user_id)
-    return{"message":"chat criado com sucesso"}
+    """Cria uma nova sessão de chat e retorna seu ID único."""
+    chat_id = await create_chat()
+    return {"chat_id": chat_id}
 
 @app.post("/chat")
 async def chat_endpoint(request: Request):
     """
     Recebe JSON:
         {
-            "user_id": "usuario123",
+            "chat_id": "65f1b2c3d4e5f6a7b8c9d0e1",
             "message": "Olá, estou com dor de cabeça"
         }
     Retorna JSON:
@@ -50,24 +49,31 @@ async def chat_endpoint(request: Request):
         }
     """
     data = await request.json()
-    user_id = data.get("user_id", "anon")
+    chat_id = data.get("chat_id")
     text = data.get("message", "").strip()
 
+    if not chat_id:
+        raise HTTPException(status_code=400, detail="chat_id é obrigatório")
     if not text:
         raise HTTPException(status_code=400, detail="Mensagem vazia")
+    try:
+        # Valida se o chat_id tem o formato de um ObjectId do MongoDB
+        bson.ObjectId(chat_id)
+    except bson.errors.InvalidId:
+        raise HTTPException(status_code=400, detail="chat_id inválido")
 
     # Salva mensagem do usuário no histórico e recebe o histórico para enviar ao agent
-    chat = await save_message(user_id, {"from": "user", "text": text})
+    chat = await save_message(chat_id, {"from": "user", "text": text})
     try:
         # Chama o agente para processar a mensagem
-        reply_text, structured_data, is_emergency = await run_agent(user_id, chat)
+        reply_text, structured_data, is_emergency = await run_agent(chat_id, chat)
 
         # Salva a resposta do agente e a triagem (se houver)
         agent_msg = {"from": "agent", "text": reply_text}
         if structured_data:
-            await save_message(user_id, agent_msg, triage=structured_data)
+            await save_message(chat_id, agent_msg, triage=structured_data)
         else:
-            await save_message(user_id, agent_msg)
+            await save_message(chat_id, agent_msg)
 
     except Exception as e:
         error_details = traceback.format_exc()
