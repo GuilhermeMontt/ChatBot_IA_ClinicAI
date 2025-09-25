@@ -1,5 +1,4 @@
 # app/main.py
-import os, json
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -12,7 +11,7 @@ load_dotenv()
 
 app = FastAPI(title="ClinicAI Triagem")
 
-# --- CORS (para o frontend Lovable) ---
+#  CORS para o frontend Lovable
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # em produção, restrinja para o domínio do frontend
@@ -37,17 +36,7 @@ async def open_chat(request: Request):
 
 @app.post("/chat")
 async def chat_endpoint(request: Request):
-    """
-    Recebe JSON:
-        {
-            "chat_id": "65f1b2c3d4e5f6a7b8c9d0e1",
-            "message": "Olá, estou com dor de cabeça"
-        }
-    Retorna JSON:
-        {
-            "reply": "Resposta do agente"
-        }
-    """
+    # Recebe JSON e retorna JSON
     data = await request.json()
     chat_id = data.get("chat_id")
     text = data.get("message", "").strip()
@@ -66,7 +55,7 @@ async def chat_endpoint(request: Request):
     chat = await save_message(chat_id, {"from": "user", "text": text})
     try:
         # Chama o agente para processar a mensagem
-        reply_text, structured_data, is_emergency = await run_agent(chat_id, chat)
+        reply_text, structured_data = await run_agent(chat_id, chat)
 
         # Salva a resposta do agente e a triagem (se houver)
         agent_msg = {"from": "agent", "text": reply_text}
@@ -78,7 +67,7 @@ async def chat_endpoint(request: Request):
     except Exception as e:
         error_details = traceback.format_exc()
         logger.error(f"Erro no chat_endpoint: {e}\n{error_details}")
-        return {"error": str(e)}  # opcional: devolver erro pro cliente
+        return {"error": str(e)} 
 
     # Retorna resposta para o frontend
     return {"reply": reply_text}
