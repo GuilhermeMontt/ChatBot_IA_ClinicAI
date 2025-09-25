@@ -1,5 +1,7 @@
 import os, json, re, logging
+
 import google.generativeai as genai
+
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -9,7 +11,7 @@ logger = logging.getLogger("uvicorn.error")
 # Funções do agente
 
 def setup_model():
-    api_key = os.getenv("GEMINI_API_KEY")  # pega GEMINI_API_KEY do .env automaticamente
+    api_key = os.getenv("GEMINI_API_KEY")  
 
     if not api_key:
         raise ValueError("⚠️ GEMINI_API_KEY não encontrada no .env")
@@ -66,7 +68,7 @@ def setup_model():
     """
 
     model = genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
+        model_name="gemini-2.0-flash",
         generation_config=generation_config,
         system_instruction=SYSTEM_PROMPT
     )
@@ -74,7 +76,7 @@ def setup_model():
     return model, EMERGENCY_KEYWORDS
 
 def extract_json(raw_text: str) -> dict:
-    """Extrai um bloco de código JSON de uma string de texto."""
+    # Extrai um bloco de código JSON de uma string de texto
     json_data = {}
     try:
         m = re.search(r"```json\s*(\{.*?\})\s*```", raw_text, re.DOTALL)
@@ -88,7 +90,6 @@ def extract_json(raw_text: str) -> dict:
     return {}
 
 def clean_llm_response(raw_text: str) -> str:
-    """Remove o bloco de código JSON e espaços em branco de uma string."""
     # Remove o bloco de código JSON
     cleaned_text = re.sub(r"```json\s*(\{.*?\})\s*```", "", raw_text, flags=re.DOTALL)
     return cleaned_text.strip()

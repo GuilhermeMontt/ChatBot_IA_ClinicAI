@@ -1,8 +1,8 @@
-# app/main.py
+import logging, traceback, bson
+
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-import logging, traceback, bson
 
 from app.db import create_chat, save_message, get_convs
 from app.agent import run_agent
@@ -14,14 +14,15 @@ app = FastAPI(title="ClinicAI Triagem")
 #  CORS para o frontend Lovable
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # em produção, restrinja para o domínio do frontend
+    allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-logger = logging.getLogger("uvicorn.error")  # usa o logger do uvicorn
-# --- Endpoints ---
+logger = logging.getLogger("uvicorn.error")
+
+# Rotas
 
 @app.get("/")
 async def root():
@@ -30,7 +31,7 @@ async def root():
 
 @app.post('/chat/new')
 async def open_chat(request: Request):
-    """Cria uma nova sessão de chat e retorna seu ID único."""
+    # Cria uma nova sessão de chat e retorna seu ID único
     chat_id = await create_chat()
     return {"chat_id": chat_id}
 

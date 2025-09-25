@@ -1,7 +1,7 @@
-import os
-from app.utils import init_db
 from datetime import datetime
 from pymongo import ReturnDocument
+
+from app.utils import init_db
 from bson.objectid import ObjectId
 
 db = init_db()
@@ -42,7 +42,7 @@ async def save_message(chat_id: str, msg_data: dict, triage: dict | None = None)
         query_filter,
         update_query,
         upsert=True,
-        return_document=ReturnDocument.AFTER  # Garante que o documento retornado é o *após* a atualização
+        return_document=ReturnDocument.AFTER  # Garante que o documento retornado é o pós atualização
     )
 
     return updated_conv.get("chat", []) if updated_conv else []
