@@ -78,6 +78,9 @@ pip install -r requirements.txt
 
 Crie um arquivo chamado `.env` na raiz do projeto e adicione as seguintes chaves, substituindo pelos seus valores:
 
+> **Dica**: Você pode copiar o arquivo `.env.example` (que deve estar no repositório) para um novo arquivo chamado `.env` e preencher com suas credenciais.
+> `cp .env.example .env`
+
 ```env
 GEMINI_API_KEY="SUA_CHAVE_DE_API_DO_GEMINI"
 MONGO_URI="SUA_URI_DE_CONEXAO_DO_MONGODB"

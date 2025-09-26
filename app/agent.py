@@ -66,7 +66,13 @@ async def process_response(state: AgentState) -> Dict[str, Any]:
     # Nó que processa a resposta do LLM, extraindo o JSON.
     raw_text = state.get("llm_response", "")
     json_data = extract_json(raw_text)
-    reply_text = clean_llm_response(raw_text)
+    # Se o JSON for extraído e contiver um resumo, use-o como a resposta final.
+    # Caso contrário, limpe a resposta bruta do LLM.
+    if json_data and "resumo" in json_data:
+        reply_text = json_data["resumo"]
+    else:
+        reply_text = clean_llm_response(raw_text)
+
     return {"final_reply": reply_text, "structured_data": json_data}
 
 

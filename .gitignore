@@ -1,21 +1,15 @@
-# Byte-compiled / optimized / DLL files
+# Arquivo de variáveis de ambiente
+# NUNCA envie este arquivo para o repositório. Ele contém segredos.
+.env
+
+# Pasta do ambiente virtual
+venv/
+/venv/
+
+# Arquivos de cache do Python
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
 
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-
-# Environment
-.env
-.venv
-venv/
+# Pastas de configuração de IDEs (opcional, mas recomendado)
+.vscode/
+.idea/
