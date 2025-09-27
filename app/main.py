@@ -11,10 +11,14 @@ load_dotenv()
 
 app = FastAPI(title="ClinicAI Triagem")
 
+origins=[
+    'http://localhost:8080', #Inserir URL do front
+]
+
 #  CORS para o frontend Lovable
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=origins,  #Conexão com front
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
